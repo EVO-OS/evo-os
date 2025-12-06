@@ -1,4 +1,4 @@
-//! VGA Graphics Driver for NexusOS
+//! VGA Graphics Driver for EvoOS
 //! Mode 13h: 320x200 @ 256 colors
 
 /// VGA framebuffer address

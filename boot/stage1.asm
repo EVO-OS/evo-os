@@ -1,5 +1,5 @@
 ;==============================================================================
-; NexusOS Bootloader - Stage 1 (MBR)
+; EvoOS Bootloader - Stage 1 (MBR)
 ; Written in Assembly - loads Stage 2
 ;==============================================================================
 
@@ -54,7 +54,7 @@ print:
     ret
 
 boot_drive: db 0
-msg_boot: db "NexusOS", 13, 10, 0
+msg_boot: db "EvoOS", 13, 10, 0
 msg_err:  db "Disk Error!", 0
 
 times 510-($-$$) db 0

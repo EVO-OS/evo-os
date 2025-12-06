@@ -1,4 +1,4 @@
-//! NexusOS Shell System
+//! EvoOS Shell System
 //! Bash-like command interpreter
 
 pub mod terminal;

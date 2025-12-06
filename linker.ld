@@ -1,4 +1,4 @@
-/* NexusOS Linker Script - Rust Kernel */
+/* EvoOS Linker Script - Rust Kernel */
 
 ENTRY(_start)
 

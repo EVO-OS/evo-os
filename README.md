@@ -1,4 +1,4 @@
-# NexusOS
+# EvoOS
 
 > A completely new operating system written in **Rust** from scratch — not Linux, not Windows, not macOS.
 
@@ -20,7 +20,7 @@
 os_from_scratch/
 ├── Cargo.toml          # Rust project config
 ├── Makefile            # Build system
-├── i686-nexus.json     # Custom bare-metal target
+├── i686-evo.json       # Custom bare-metal target
 ├── linker.ld           # Kernel linker script
 ├── boot/
 │   ├── stage1.asm      # MBR bootloader (512 bytes)
@@ -69,7 +69,7 @@ make run
 | `clear` | Clear the screen |
 | `echo <text>` | Print text |
 | `version` | Show OS version |
-| `about` | About NexusOS |
+| `about` | About EvoOS |
 | `color <0-15>` | Change text color |
 | `mem` | Show memory info |
 | `reboot` | Reboot system |
@@ -79,7 +79,7 @@ make run
 
 ```
 ┌─────────────────────────────────────────┐
-│              NexusOS                    │
+│              EvoOS                      │
 ├─────────────────────────────────────────┤
 │  Shell (commands, terminal, parser)     │
 ├─────────────────────────────────────────┤
@@ -93,9 +93,9 @@ make run
 └─────────────────────────────────────────┘
 ```
 
-## Why NexusOS?
+## Why EvoOS?
 
-| Aspect | Linux | Windows | macOS | **NexusOS** |
+| Aspect | Linux | Windows | macOS | **EvoOS** |
 |--------|-------|---------|-------|-------------|
 | Language | C | C/C++ | C/Obj-C | **Rust** |
 | Kernel Size | ~30MB | ~100MB | ~50MB | **~99KB** |
@@ -112,4 +112,4 @@ Contributions are welcome! Feel free to open issues or submit PRs.
 
 ---
 
-**NexusOS** — *Something completely new.*
+**EvoOS** — *Something completely new.*

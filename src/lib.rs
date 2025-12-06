@@ -1,4 +1,4 @@
-//! NexusOS Kernel - Written in Rust
+//! EvoOS Kernel - Written in Rust
 //! A completely new operating system from scratch
 
 #![no_std]

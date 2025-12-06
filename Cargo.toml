@@ -1,9 +1,9 @@
 [package]
-name = "nexus_os"
+name = "evo_os"
 version = "0.1.0"
 edition = "2021"
-authors = ["NexusOS Team"]
-description = "NexusOS - A new operating system written in Rust from scratch"
+authors = ["EvoOS Team"]
+description = "EvoOS - A new operating system written in Rust from scratch"
 
 [lib]
 crate-type = ["staticlib"]

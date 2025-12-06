@@ -1,4 +1,4 @@
-//! NexusOS Color System
+//! EvoOS Color System
 //! Inspired by Radix UI's semantic color scales
 //! 
 //! Each color has a 12-step scale for different use cases:

@@ -1,4 +1,4 @@
-//! Window Manager for NexusOS
+//! Window Manager for EvoOS
 
 use crate::vga::{Color, SCREEN};
 

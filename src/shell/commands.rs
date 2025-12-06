@@ -32,13 +32,13 @@ pub fn execute(cmd: &str, args: &[&str]) -> CommandResult {
 fn cmd_help() -> CommandResult {
     let term = terminal();
     term.set_color(CURRENT_THEME.terminal_prompt);
-    term.println("NexusOS Shell Commands:");
+    term.println("EvoOS Shell Commands:");
     term.set_color(CURRENT_THEME.terminal_text);
     term.println("  help          - Show this help");
     term.println("  clear, cls    - Clear screen");
     term.println("  echo <text>   - Print text");
     term.println("  version       - Show OS version");
-    term.println("  about         - About NexusOS");
+    term.println("  about         - About EvoOS");
     term.println("  color <n>     - Set text color (0-15)");
     term.println("  time          - Show system time");
     term.println("  mem           - Show memory info");
@@ -64,7 +64,7 @@ fn cmd_echo(args: &[&str]) -> CommandResult {
 
 fn cmd_version() -> CommandResult {
     let term = terminal();
-    term.println("NexusOS v0.1.0 (Rust Edition)");
+    term.println("EvoOS v0.1.0 (Rust Edition)");
     term.println("Built with Rust - 100% Memory Safe");
     CommandResult::Ok
 }

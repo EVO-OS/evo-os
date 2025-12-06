@@ -1,5 +1,5 @@
 #==============================================================================
-# NexusOS Makefile - Rust Edition
+# EvoOS Makefile - Rust Edition
 # Build system for the Rust-based operating system
 #==============================================================================
 
@@ -8,7 +8,7 @@ ASM = nasm
 QEMU = qemu-system-i386
 
 # Rust target
-TARGET = i686-nexus
+TARGET = i686-evo
 RUST_TARGET_PATH = $(shell pwd)
 
 # Directories
@@ -20,14 +20,14 @@ SRC = src
 STAGE1 = $(BUILD)/stage1.bin
 STAGE2 = $(BUILD)/stage2.bin
 KERNEL = $(BUILD)/kernel.bin
-OS_IMAGE = $(BUILD)/nexus.img
+OS_IMAGE = $(BUILD)/evo.img
 
 .PHONY: all clean run debug
 
 all: $(BUILD) rust_kernel $(OS_IMAGE)
 	@echo ""
 	@echo "╔═══════════════════════════════════════════════════════╗"
-	@echo "║  NexusOS (Rust Edition) built successfully!           ║"
+	@echo "║  EvoOS (Rust Edition) built successfully!             ║"
 	@echo "║  Run 'make run' to boot in QEMU                       ║"
 	@echo "╚═══════════════════════════════════════════════════════╝"
 	@echo ""
@@ -46,7 +46,7 @@ $(STAGE2): $(BOOT)/stage2.asm
 rust_kernel: $(BUILD)
 	@echo "Building Rust kernel..."
 	RUST_TARGET_PATH=$(RUST_TARGET_PATH) cargo build --release --target $(TARGET).json -Zbuild-std=core -Zbuild-std-features=compiler-builtins-mem
-	cp target/$(TARGET)/release/libnexus_os.a $(BUILD)/kernel.a
+	cp target/$(TARGET)/release/libevo_os.a $(BUILD)/kernel.a
 	ld -m elf_i386 -T linker.ld -o $(BUILD)/kernel.elf $(BUILD)/kernel.a
 	objcopy -O binary $(BUILD)/kernel.elf $(KERNEL)
 
@@ -60,7 +60,7 @@ $(OS_IMAGE): $(STAGE1) $(STAGE2) rust_kernel
 	@echo "Created: $@"
 
 run: $(OS_IMAGE)
-	@echo "Booting NexusOS in QEMU..."
+	@echo "Booting EvoOS in QEMU..."
 	$(QEMU) -drive format=raw,file=$(OS_IMAGE),if=floppy -boot a -m 32M
 
 debug: $(OS_IMAGE)

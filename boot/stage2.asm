@@ -1,5 +1,5 @@
 ;==============================================================================
-; NexusOS Bootloader - Stage 2
+; EvoOS Bootloader - Stage 2
 ; Sets up VGA graphics, protected mode, and jumps to Rust kernel
 ;==============================================================================
 

@@ -1,4 +1,4 @@
-//! Terminal Display for NexusOS Shell
+//! Terminal Display for EvoOS Shell
 
 use crate::vga::{SCREEN, SCREEN_WIDTH, SCREEN_HEIGHT};
 use crate::colors::theme::CURRENT_THEME;
@@ -48,7 +48,7 @@ impl Terminal {
     fn print_banner(&mut self) {
         self.set_color(CURRENT_THEME.terminal_prompt);
         self.println("╔═══════════════════════════════════════╗");
-        self.println("║         NexusOS Shell v0.1            ║");
+        self.println("║         EvoOS Shell v0.1              ║");
         self.println("║     Type 'help' for commands          ║");
         self.println("╚═══════════════════════════════════════╝");
         self.set_color(CURRENT_THEME.terminal_text);
@@ -113,7 +113,7 @@ impl Terminal {
     /// Print shell prompt
     pub fn prompt(&mut self) {
         self.set_color(CURRENT_THEME.terminal_prompt);
-        self.print("nexus$ ");
+        self.print("evo$ ");
         self.set_color(CURRENT_THEME.terminal_text);
     }
 

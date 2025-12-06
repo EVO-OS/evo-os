@@ -1,4 +1,4 @@
-//! Desktop Environment for NexusOS
+//! Desktop Environment for EvoOS
 
 use crate::vga::{Color, SCREEN, SCREEN_WIDTH, SCREEN_HEIGHT};
 
