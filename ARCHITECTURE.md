@@ -1,0 +1,202 @@
+# EVO-OS — System Architecture
+
+This document describes the full architecture of EVO-OS: how repos relate to each other, how data flows from power-on to a running userspace, and what design decisions were made at each layer.
+
+---
+
+## Layered Architecture
+
+EVO-OS is organized into **6 distinct layers**, each in its own git submodule with a single clear responsibility:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ LAYER 5 — APPLICATIONS                             [apps repo]      │
+│                                                                     │
+│  ┌─────────┐  ┌──────────────┐  ┌──────────┐  ┌───────────────┐   │
+│  │  Shell  │  │ File Manager │  │ Settings │  │    Browser    │   │
+│  └─────────┘  └──────────────┘  └──────────┘  └───────────────┘   │
+├─────────────────────────────────────────────────────────────────────┤
+│ LAYER 4 — GUI & DISPLAY SERVER                     [GUI repo]       │
+│                                                                     │
+│  ┌──────────────┐  ┌────────────────┐  ┌────────────────────────┐  │
+│  │ Framebuffer │  │ Window Manager │  │ Compositor + Fonts     │  │
+│  └──────────────┘  └────────────────┘  └────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────────┤
+│ LAYER 3 — USERSPACE RUNTIME             [libc repo] [filesystem]    │
+│                                                                     │
+│  ┌────────────────────────┐  ┌──────────────────────────────────┐  │
+│  │ relibc (Rust libc ABI) │  │ VFS + FAT32 + ext4               │  │
+│  └────────────────────────┘  └──────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────────┤
+│ LAYER 2 — KERNEL              [Kernel repo] [drivers] [bsp]         │
+│                                                                     │
+│  ┌────────────┐  ┌───────────┐  ┌──────────┐  ┌───────────────┐   │
+│  │  Memory    │  │ Scheduler │  │ Syscalls │  │     IPC       │   │
+│  │  Manager   │  │  (CFS)    │  │  (ABI)   │  │  Pipes/MQ/SM  │   │
+│  └────────────┘  └───────────┘  └──────────┘  └───────────────┘   │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │              Device Drivers  [drivers repo]                    │ │
+│  │  Keyboard · VGA · ATA/NVMe · Ethernet · USB                   │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │              Board Support Package  [bsp repo]                 │ │
+│  │  x86-64 HAL · ARM HAL · Platform-specific init                │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────────────┤
+│ LAYER 1 — BOOTLOADER                           [bootloader repo]    │
+│                                                                     │
+│  ┌───────────────────────┐  ┌──────────────────────────────────┐   │
+│  │  Stage 1 (512B MBR)  │  │  Stage 2 (Long Mode + ELF load) │   │
+│  └───────────────────────┘  └──────────────────────────────────┘   │
+├─────────────────────────────────────────────────────────────────────┤
+│ LAYER 0 — FIRMWARE                             [frimware repo]      │
+│                                                                     │
+│  ┌──────────────┐  ┌────────────┐  ┌────────────┐  ┌───────────┐  │
+│  │  UEFI/BIOS   │  │    FOTA    │  │ Secure Boot│  │   TPM     │  │
+│  │  Hardware    │  │  A/B slots │  │  Chain     │  │ Measured  │  │
+│  │  Init (POST) │  │  Engine    │  │  of Trust  │  │  Boot     │  │
+│  └──────────────┘  └────────────┘  └────────────┘  └───────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Cross-Repo Dependency Graph
+
+```
+apps ──────────────────────────────────────────────────┐
+                                                       │
+GUI ────────────────────────────────────────────────── ┤
+                                                       │ links against
+libc ──────────────────────────────────────────────── ┤
+                                                       │
+filesystem ────────────────────────────────────────── ┤
+              ↑                                        │
+              │ provides VFS + POSIX I/O               ▼
+Kernel ─────────────────────────────── exposes syscalls to all above
+  ↑          ↑           ↑
+  │          │           │
+drivers     bsp     (interrupt routing)
+              ↑
+bootloader ─ loads kernel ELF, passes boot params
+              ↑
+frimware ─── verifies bootloader (Secure Boot), FOTA update
+              ↑
+         HARDWARE
+```
+
+---
+
+## Design Decisions
+
+### Why Rust?
+
+- **Memory safety at compile time**: No use-after-free, no buffer overflows, no null dereference — without a garbage collector. These are the root cause of the vast majority of kernel CVEs in C.
+- **`no_std` for bare metal**: Rust's `core` and `alloc` crates work without any OS runtime, making it ideal for kernel and firmware code.
+- **Growing ecosystem**: The Linux kernel now accepts Rust drivers (since 6.1). Android uses Rust for new low-level components. Redox OS proves a full Rust OS is viable.
+
+### Why Monolithic Kernel?
+
+- Simpler development path — all kernel services (MM, scheduler, drivers) in the same address space.
+- Better performance than microkernel (no IPC overhead for every syscall).
+- Can evolve toward a hybrid model (externalizing some drivers) as the project matures.
+
+### Why Separate Submodule Repos?
+
+Each repo has a single clear responsibility, release cycle, and owner — following the same pattern as major OS projects:
+- Linux: `torvalds/linux` (kernel) + separate glibc, systemd, Mesa
+- Android: `kernel/`, `bootloader/`, `platform/`, `vendor/` in AOSP
+- SerenityOS: monorepo (kernel + userland + apps together)
+
+EVO-OS chooses the **multi-repo model** to keep each layer independently versionable and auditable — especially important for the security-critical firmware and kernel layers.
+
+### Why FOTA from the Start?
+
+Modern OSes run on billions of devices that must receive updates without physical access. Building FOTA (Firmware Over-The-Air) in from the beginning — with cryptographic signing and A/B slots — is essential for any OS that targets mobile or IoT, not just desktop.
+
+---
+
+## Memory Layout at Boot
+
+```
+Physical Address Space (x86-64)
+┌─────────────────────────────────────────┐ 0xFFFF_FFFF_FFFF_FFFF (top of 64-bit)
+│  Kernel virtual address space           │
+│  (higher half, mapped by paging)        │
+│                                         │
+├─────────────────────────────────────────┤ 0xFFFF_8000_0000_0000
+│  (non-canonical hole)                   │
+├─────────────────────────────────────────┤ 0x0000_7FFF_FFFF_FFFF
+│  Userspace virtual address space        │
+│                                         │
+├─────────────────────────────────────────┤
+│  ...                                    │
+├─────────────────────────────────────────┤ ~1 MB
+│  Kernel binary (loaded by bootloader)   │
+├─────────────────────────────────────────┤ 0x10000 (Stage 2 area)
+│  Bootloader Stage 2                     │
+├─────────────────────────────────────────┤ 0x7C00  (MBR load address)
+│  Bootloader Stage 1 (512 bytes)         │
+├─────────────────────────────────────────┤ 0x0500  (free conventional RAM start)
+│  BIOS data area / interrupt vectors     │
+└─────────────────────────────────────────┘ 0x0000
+```
+
+---
+
+## Kernel Subsystem Interactions
+
+```
+                      ┌──────────────────────────────────┐
+  Userspace process   │         System Call Gate          │
+  (libc / direct)     │   (syscall/sysret instruction)    │
+                      └──────────────────────┬───────────┘
+                                             │
+              ┌──────────────────────────────▼──────────────────────────┐
+              │                    KERNEL                                │
+              │                                                          │
+              │  ┌────────────┐   ┌─────────────┐   ┌────────────────┐ │
+              │  │  Process   │   │   Memory    │   │   Filesystem   │ │
+              │  │  Manager   │◄─►│   Manager   │◄─►│   (VFS layer)  │ │
+              │  │ (Scheduler)│   │ (PMM+VMM)   │   │                │ │
+              │  └─────┬──────┘   └──────┬──────┘   └────────┬───────┘ │
+              │        │                 │                    │         │
+              │  ┌─────▼──────────────────▼────────────────── ▼───────┐ │
+              │  │              IPC Subsystem                         │ │
+              │  │   Pipes · Message Queues · Shared Memory · Signals │ │
+              │  └────────────────────────────────────────────────────┘ │
+              │                             │                            │
+              │  ┌──────────────────────────▼───────────────────────┐  │
+              │  │           Interrupt / Exception Handler           │  │
+              │  │       IDT · PIC/APIC · Hardware Interrupts        │  │
+              │  └──────────────────────────┬───────────────────────┘  │
+              └────────────────────────────────────────────────────────┘
+                                            │
+              ┌─────────────────────────────▼──────────────────────────┐
+              │                    DRIVERS                              │
+              │  Keyboard · VGA/FB · ATA/NVMe · Network · USB          │
+              └────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Coding Standards
+
+| Layer | Language | `std` Usage | Notes |
+|-------|----------|-------------|-------|
+| Firmware | Rust + C + ASM | `no_std` | UEFI DXE phase uses C |
+| Bootloader | ASM + Rust | `no_std` | Stage 1 is pure NASM (512B) |
+| Kernel | Rust | `no_std` + `alloc` | Custom allocator |
+| Drivers | Rust | `no_std` + `alloc` | Registered via trait objects |
+| BSP | Rust + C | `no_std` | Platform-specific |
+| libc | Rust | `no_std` | Exposes C ABI (`extern "C"`) |
+| Filesystem | Rust | `no_std` + `alloc` | VFS trait-based |
+| GUI | Rust | `std` (userspace) | Links against libc |
+| Apps | Rust / C / Python | `std` | Via syscall ABI |
+
+---
+
+*See also:*
+- [`docs/BOOT_CHAIN.md`](docs/BOOT_CHAIN.md) — Detailed boot sequence
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — Development roadmap
+- [`Kernel/ARCHITECTURE.md`](Kernel/ARCHITECTURE.md) — Kernel internals
