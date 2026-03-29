@@ -1,0 +1,27 @@
+[submodule "Kernel"]
+	path = Kernel
+	url = https://github.com/EVO-OS/Kernel
+[submodule "frimware"]
+	path = frimware
+	url = https://github.com/EVO-OS/frimware
+[submodule "bootloader"]
+	path = bootloader
+	url = https://github.com/EVO-OS/bootloader
+[submodule "bsp"]
+	path = bsp
+	url = https://github.com/EVO-OS/bsp
+[submodule "drivers"]
+	path = drivers
+	url = https://github.com/EVO-OS/drivers
+[submodule "libc"]
+	path = libc
+	url = https://github.com/EVO-OS/libc
+[submodule "filesystem"]
+	path = filesystem
+	url = https://github.com/EVO-OS/filesystem
+[submodule "GUI"]
+	path = GUI
+	url = https://github.com/EVO-OS/GUI
+[submodule "apps"]
+	path = apps
+	url = https://github.com/EVO-OS/apps
