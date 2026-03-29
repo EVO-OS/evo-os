@@ -25,3 +25,6 @@
 [submodule "apps"]
 	path = apps
 	url = https://github.com/EVO-OS/apps
+[submodule ".github"]
+	path = .github
+	url = https://github.com/EVO-OS/.github
