@@ -1,0 +1,633 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm,headheight=14pt]{geometry}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage[table]{xcolor}        % [table] required for \rowcolor
+\usepackage{fancyhdr}
+\usepackage{mdframed}
+\usepackage{listings}
+\usepackage[T1]{fontenc}          % T1 encoding required
+\usepackage[utf8]{inputenc}       % UTF-8 source encoding
+\usepackage{parskip}
+
+\definecolor{codeblue}{RGB}{0,90,160}
+\definecolor{sectioncolor}{RGB}{30,60,120}
+\definecolor{boxbg}{RGB}{240,245,255}
+\definecolor{boxborder}{RGB}{100,140,200}
+\definecolor{tablehead}{RGB}{220,230,245}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=codeblue,
+  urlcolor=codeblue
+}
+
+\titleformat{\section}{\large\bfseries\color{sectioncolor}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries\color{codeblue}}{}{0em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{}{0em}{}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{boxbg},
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{boxborder},
+  breaklines=true,
+  columns=fullflexible
+}
+
+\newmdenv[
+  backgroundcolor=boxbg,
+  linecolor=boxborder,
+  linewidth=1pt,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt
+]{infobox}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\textcolor{sectioncolor}{\small OS Development Guide}}
+\lhead{\textcolor{sectioncolor}{\small Repository Structure}}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  \vspace*{3cm}
+  {\Huge\bfseries\color{sectioncolor} Building a Personal Operating System\par}
+  \vspace{0.5cm}
+  {\large\color{gray} A Complete Guide to Repository Structure\par}
+  \vspace{2cm}
+  \hrule height 1pt
+  \vspace{0.5cm}
+  {\normalsize\color{gray}
+    Covers: Firmware \textbullet{} Bootloader \textbullet{} Kernel \textbullet{}
+    BSP \textbullet{} Drivers \textbullet{} libc \textbullet{} Userspace \textbullet{} GUI
+  \par}
+  \vspace{0.5cm}
+  \hrule height 0.4pt
+  \vfill
+  {\small\color{gray} March 2026}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+%% ─────────────────────────────────────────────
+\section{Overview: The Boot Chain}
+
+When a computer powers on, code executes in a strict sequence before the OS is usable. Each stage is independent and lives in its own repository.
+
+\begin{infobox}
+\textbf{Boot order:}\\
+Power on
+$\;\rightarrow\;$ BIOS/UEFI (firmware-repo)
+$\;\rightarrow\;$ GRUB/U-Boot (bootloader-repo)
+$\;\rightarrow\;$ Kernel (kernel-repo)
+$\;\rightarrow\;$ Init/Userspace (userspace-repo)
+$\;\rightarrow\;$ GUI/Apps
+\end{infobox}
+
+\subsection*{Repository layers}
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{4cm} p{9cm}}
+\toprule
+\rowcolor{tablehead} Repository & Responsibility \\
+\midrule
+firmware-repo   & BIOS/UEFI, POST, FOTA, hardware init \\
+bootloader-repo & GRUB/U-Boot, loads kernel into RAM \\
+bsp-repo        & Board Support Package, chip-specific config \\
+kernel-repo     & Memory, scheduler, syscalls, drivers \\
+drivers-repo    & GPU, USB, storage, network, audio \\
+libc-repo       & C standard library, syscall wrappers \\
+filesystem-repo & VFS, ext4, FAT32 \\
+userspace-repo  & init, shell, core utilities \\
+gui-repo        & Window manager, display server \\
+apps-repo       & Browser, settings, bundled tools \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%% ─────────────────────────────────────────────
+\section{Firmware Repository (\texttt{firmware-repo})}
+
+The firmware repo holds every piece of code that executes before the OS. It lives in ROM or flash on the motherboard.
+
+\subsection{Hardware Initialisation}
+The very first code that runs when power is applied. Responsibilities include:
+\begin{itemize}[noitemsep]
+  \item POST (Power-On Self-Test) --- validates CPU, RAM, storage
+  \item CPU microcode initialisation
+  \item DDR/LPDDR RAM training (configuring memory timings and channels)
+  \item PCIe link setup and clock/voltage configuration
+\end{itemize}
+Written in C and assembly; runs before any OS concept exists.
+
+\subsection{UEFI / BIOS Core}
+Modern firmware follows the UEFI specification with three phases:
+\begin{itemize}[noitemsep]
+  \item \textbf{PEI} (Pre-EFI Initialisation) --- early hardware setup
+  \item \textbf{DXE} (Driver Execution Environment) --- loads firmware drivers
+  \item \textbf{BDS} (Boot Device Selection) --- finds and launches the bootloader
+\end{itemize}
+Also handles Secure Boot key enrollment and UEFI runtime services.
+
+\subsection{FOTA Engine (Firmware Over-The-Air)}
+Manages wireless or remote firmware updates. Steps:
+\begin{enumerate}[noitemsep]
+  \item Download signed update package
+  \item Cryptographically verify the package
+  \item Write to the inactive flash slot (A/B scheme)
+  \item On next boot, activate the new slot; rollback on failure
+\end{enumerate}
+Critical on Android, embedded, and IoT devices.
+
+\subsection{Flash Layout}
+Defines how physical flash is partitioned:
+\begin{itemize}[noitemsep]
+  \item Firmware image location in ROM/flash map
+  \item Non-volatile storage (NVRAM) for settings
+  \item A/B update slots for safe over-the-air updates
+\end{itemize}
+
+\subsection{Firmware-Level Drivers}
+Early drivers running inside UEFI before the OS kernel loads:
+\begin{itemize}[noitemsep]
+  \item ACPI tables --- describe hardware topology to the OS
+  \item SMBIOS --- system info (vendor, model, serial number)
+  \item Minimal NVMe, USB, and framebuffer drivers for the UEFI setup menu
+\end{itemize}
+
+\subsection{Security Module}
+\begin{itemize}[noitemsep]
+  \item TPM (Trusted Platform Module) integration
+  \item Measured boot --- records each boot stage into TPM PCRs
+  \item Cryptographic key management and signature verification
+\end{itemize}
+
+%% ─────────────────────────────────────────────
+\section{Bootloader Repository (\texttt{bootloader-repo})}
+
+The bootloader receives control from the firmware and is responsible for loading the kernel into RAM.
+
+\subsection{Stage 1 --- SPL (Secondary Program Loader)}
+A tiny piece of code (4--32\,KB) that fits in the chip's internal SRAM before external RAM is initialised:
+\begin{itemize}[noitemsep]
+  \item Initialises DDR/LPDDR RAM
+  \item Loads Stage 2 from flash into RAM
+  \item On x86: handled inside GRUB's \texttt{boot.img}
+  \item On ARM/Android: U-Boot SPL
+\end{itemize}
+
+\subsection{Stage 2 --- Main Loader (GRUB / U-Boot Core)}
+The full bootloader, running with complete RAM access:
+\begin{itemize}[noitemsep]
+  \item Reads boot configuration file
+  \item Locates kernel image and initramfs on disk
+  \item Loads them into RAM
+  \item Sets up boot parameters (kernel command line)
+  \item Jumps to the kernel entry point
+\end{itemize}
+
+\subsection{Boot Configuration}
+Human-readable files that control boot behaviour:
+\begin{itemize}[noitemsep]
+  \item \texttt{grub.cfg} / \texttt{extlinux.conf}
+  \item Kernel image path and command-line arguments
+  \item Multi-boot menu entries and timeout
+\end{itemize}
+
+\subsection{Signature Verifier}
+Core of the Secure Boot chain of trust:
+\begin{itemize}[noitemsep]
+  \item Checks cryptographic signature on the kernel image
+  \item Refuses to load unsigned or incorrectly signed kernels
+  \item Signing keys and verification logic both live here
+\end{itemize}
+
+\subsection{Device Tree Blobs (DTB)}
+Used on ARM and embedded platforms:
+\begin{itemize}[noitemsep]
+  \item \texttt{.dts} source files compiled to \texttt{.dtb} binaries
+  \item Describes hardware layout to the kernel (peripherals, addresses, IRQs)
+  \item Bootloader selects the correct DTB for the board and passes it to the kernel
+  \item x86 uses ACPI from firmware instead
+\end{itemize}
+
+\subsection{Recovery / Fastboot Mode}
+Fallback mode triggered by key combination or failed boot:
+\begin{itemize}[noitemsep]
+  \item Android: \texttt{fastboot} --- flash images over USB, A/B switch, wipe data
+  \item Desktop Linux: GRUB rescue shell
+  \item Enables recovery without physical reflashing
+\end{itemize}
+
+%% ─────────────────────────────────────────────
+\section{Board Support Package (\texttt{bsp-repo})}
+
+The BSP is the glue between generic OS software and a specific piece of hardware. It captures all board-specific knowledge that cannot be expressed in the generic kernel or bootloader.
+
+\begin{infobox}
+\textbf{Key distinction:} The kernel repo contains \textit{generic} drivers that work across many boards. The BSP repo contains everything \textit{specific to one board or chip family}.
+\end{infobox}
+
+\subsection{SoC / CPU Configuration}
+\begin{itemize}[noitemsep]
+  \item Clock tree setup (frequencies for each clock domain)
+  \item Power domain configuration (which chip regions can power down)
+  \item Pin multiplexing (assigning functions to GPIO pins)
+  \item Voltage regulator settings
+\end{itemize}
+
+\subsection{Memory Map}
+\begin{itemize}[noitemsep]
+  \item Precise map of the address space: RAM, ROM, MMIO registers
+  \item Regions reserved for secure world (TrustZone/TEE)
+  \item Flash partition layout (bootloader, kernel, userdata slots)
+\end{itemize}
+
+\subsection{Device Tree Source (\texttt{.dts})}
+\begin{itemize}[noitemsep]
+  \item Human-readable hardware description language
+  \item Describes every peripheral, its address, interrupt lines, clocks
+  \item Compiled to \texttt{.dtb} and passed to the kernel by the bootloader
+\end{itemize}
+
+\subsection{HAL (Hardware Abstraction Layer)}
+Primarily an Android concept:
+\begin{itemize}[noitemsep]
+  \item Vendor-provided shared libraries for camera, audio, sensors, GPU, biometrics
+  \item Implements standardised Android HAL interfaces
+  \item Lets Android run on thousands of devices without knowing each chip's internals
+\end{itemize}
+
+\subsection{Board-Specific Drivers}
+Drivers too specific for the generic kernel:
+\begin{itemize}[noitemsep]
+  \item PMIC (Power Management IC) driver
+  \item Battery gauge and charger
+  \item Display panel initialisation sequence
+  \item Touchscreen firmware, fingerprint sensor, NFC controller
+\end{itemize}
+
+\subsection{Bootloader Configuration}
+U-Boot \texttt{defconfig} files for this board:
+\begin{itemize}[noitemsep]
+  \item DDR memory training parameters
+  \item SPL memory layout
+  \item Boot source selection and GPIO boot mode pin
+\end{itemize}
+
+%% ─────────────────────────────────────────────
+\section{Kernel Repository (\texttt{kernel-repo})}
+
+The kernel is the largest and most complex repository. Its single contract with userspace is the syscall table --- approximately 400 functions that programs invoke via a CPU instruction.
+
+\subsection{\texttt{arch/} --- Architecture-Specific Code}
+\begin{itemize}[noitemsep]
+  \item Separate subdirectories: \texttt{arch/x86/}, \texttt{arch/arm64/}, \texttt{arch/riscv/}, \ldots
+  \item Kernel entry point (first instruction after bootloader jump)
+  \item CPU initialisation, interrupt descriptor tables (IDT/GIC)
+  \item Context-switching assembly, page table setup
+\end{itemize}
+
+\subsection{\texttt{mm/} --- Memory Management}
+\begin{itemize}[noitemsep]
+  \item Physical page allocator (buddy allocator)
+  \item Slab/slub allocator for kernel objects (\texttt{kmalloc}/\texttt{kfree})
+  \item Virtual memory areas (VMAs) and page fault handling
+  \item Memory-mapped files (\texttt{mmap}), swap, huge pages
+  \item OOM (Out of Memory) killer
+\end{itemize}
+
+\subsection{\texttt{kernel/} --- Core Kernel}
+\begin{itemize}[noitemsep]
+  \item CFS (Completely Fair Scheduler) and real-time schedulers
+  \item \texttt{fork}/\texttt{exec}/\texttt{exit} process lifecycle
+  \item Signal delivery, timer infrastructure (\texttt{hrtimer}, \texttt{jiffies})
+  \item Syscall dispatch table
+  \item RCU (Read-Copy-Update) synchronisation
+  \item \texttt{kthread} infrastructure for kernel threads
+\end{itemize}
+
+\subsection{\texttt{fs/} --- Filesystems}
+\begin{itemize}[noitemsep]
+  \item VFS (Virtual File System) abstraction layer
+  \item Filesystem implementations: ext4, btrfs, tmpfs
+  \item Virtual filesystems: procfs (\texttt{/proc}), sysfs (\texttt{/sys}), devtmpfs (\texttt{/dev})
+  \item Every \texttt{open()}, \texttt{read()}, \texttt{write()} syscall flows through VFS
+\end{itemize}
+
+\subsection{\texttt{drivers/} --- Device Drivers}
+The largest directory by line count. Organised by category:
+\begin{itemize}[noitemsep]
+  \item \texttt{drivers/gpu/} --- DRM/KMS display, 3D rendering
+  \item \texttt{drivers/usb/} --- host controllers, HID, mass storage
+  \item \texttt{drivers/block/} --- NVMe, SATA, eMMC
+  \item \texttt{drivers/net/} --- Ethernet, WiFi
+  \item \texttt{drivers/input/} --- keyboard, mouse, touchscreen
+\end{itemize}
+
+\subsection{\texttt{net/} --- Networking Stack}
+\begin{itemize}[noitemsep]
+  \item Full TCP/IP implementation: \texttt{net/ipv4/}, \texttt{net/ipv6/}
+  \item Socket layer, UDP, ICMP, DNS resolution hooks
+  \item Packet filtering (netfilter / iptables / nftables)
+  \item Network namespaces
+\end{itemize}
+
+\subsection{\texttt{ipc/} --- Inter-Process Communication}
+\begin{itemize}[noitemsep]
+  \item Pipes and FIFOs
+  \item Unix domain sockets
+  \item POSIX message queues, semaphores, shared memory
+\end{itemize}
+
+\subsection{\texttt{security/} --- Security Framework}
+\begin{itemize}[noitemsep]
+  \item Linux Security Module (LSM) framework
+  \item SELinux and AppArmor implementations
+  \item Capabilities (fine-grained privilege control)
+  \item Every security-sensitive kernel operation calls through LSM hooks
+\end{itemize}
+
+%% ─────────────────────────────────────────────
+\section{Drivers Repository (\texttt{drivers-repo})}
+
+When kept separate from the kernel, the drivers repo holds loadable kernel modules (LKMs) and out-of-tree drivers. Every driver follows the same lifecycle: register via \texttt{probe()} on device detection, clean up via \texttt{remove()}.
+
+\subsection{GPU / Display}
+\begin{itemize}[noitemsep]
+  \item DRM (Direct Rendering Manager) for GPU command submission
+  \item KMS (Kernel Mode Setting) for display pipeline and resolution
+  \item Mesa implements OpenGL/Vulkan in userspace via DRM \texttt{ioctl}
+  \item Fallback: simple linear framebuffer (just write pixels to a memory address)
+\end{itemize}
+
+\subsection{Storage}
+\begin{itemize}[noitemsep]
+  \item NVMe (PCIe-attached SSDs), SATA/AHCI, eMMC/UFS (mobile flash)
+  \item All register with the kernel's block layer
+  \item Block layer provides the I/O scheduler (ordering and merging reads/writes)
+\end{itemize}
+
+\subsection{Network}
+\begin{itemize}[noitemsep]
+  \item Each NIC driver registers a \texttt{net\_device} with the networking stack
+  \item Ethernet, \texttt{mac80211} + firmware for WiFi, \texttt{hci\_core} for Bluetooth
+  \item Driver handles raw packets; TCP/IP is handled above in \texttt{net/}
+\end{itemize}
+
+\subsection{USB}
+\begin{itemize}[noitemsep]
+  \item Host controller driver: XHCI (USB 3.x), EHCI (USB 2.0)
+  \item Class drivers: HID (keyboards, mice), Mass Storage, CDC (networking/serial)
+  \item Fully hotplug --- drivers bind and unbind at runtime
+\end{itemize}
+
+\subsection{Input}
+\begin{itemize}[noitemsep]
+  \item All devices register with the \texttt{evdev} input framework
+  \item Exposed as \texttt{/dev/input/eventN} files to userspace
+  \item Keyboard: scancode to key event translation
+  \item Touchscreen: multi-touch contact point reporting
+\end{itemize}
+
+\subsection{Audio}
+\begin{itemize}[noitemsep]
+  \item ALSA (Advanced Linux Sound Architecture) framework
+  \item ASoC (Audio System on Chip) for embedded/mobile
+  \item Three driver components: codec driver, platform driver, machine driver
+  \item HDMI audio handled as part of the display driver
+\end{itemize}
+
+\subsection{Platform / Power Management}
+\begin{itemize}[noitemsep]
+  \item ACPI (x86) or device tree (ARM) hardware description
+  \item \texttt{cpufreq}: CPU frequency scaling (DVFS)
+  \item Thermal framework: monitor temperatures, throttle on overheat
+  \item Runtime PM: individual devices enter low-power states when idle
+  \item Suspend/resume infrastructure for system sleep and wake
+\end{itemize}
+
+\begin{infobox}
+\textbf{Key rule:} A driver should never contain policy --- it should only talk to hardware and expose a clean interface upward. All decisions about \textit{how} to use the hardware belong in the layers above.
+\end{infobox}
+
+%% ─────────────────────────────────────────────
+\section{C Standard Library (\texttt{libc-repo})}
+
+libc is the bridge between every userspace program and the kernel. Almost every program links against it, often transparently.
+
+\begin{infobox}
+\texttt{your program} $\;\rightarrow\;$ calls \texttt{printf()}, \texttt{malloc()}, \texttt{open()}\\
+\texttt{libc} $\;\rightarrow\;$ executes \texttt{syscall} instruction\\
+\texttt{kernel} $\;\rightarrow\;$ talks to hardware via drivers
+\end{infobox}
+
+\subsection{Syscall Wrappers}
+\begin{itemize}[noitemsep]
+  \item Wraps every kernel syscall in a clean C function
+  \item \texttt{open()}, \texttt{read()}, \texttt{write()}, \texttt{close()}, \texttt{mmap()}, \ldots
+  \item Marshals arguments, executes \texttt{syscall} instruction, checks for errors
+  \item Without libc you would write this assembly yourself for every OS call
+\end{itemize}
+
+\subsection{Memory Allocator}
+\begin{itemize}[noitemsep]
+  \item \texttt{malloc()}, \texttt{free()}, \texttt{calloc()}, \texttt{realloc()}
+  \item Requests large chunks from kernel via \texttt{brk()} / \texttt{mmap()}
+  \item Carves those chunks into small allocations for programs
+  \item Tracks freed memory and reuses it
+  \item Implementations: ptmalloc (glibc), jemalloc, tcmalloc
+\end{itemize}
+
+\subsection{stdio --- Buffered I/O}
+\begin{itemize}[noitemsep]
+  \item \texttt{printf()}, \texttt{scanf()}, \texttt{fopen()}, \texttt{fread()}, \texttt{fwrite()}
+  \item Adds a buffering layer over raw \texttt{read()}/\texttt{write()} syscalls
+  \item Buffer flushes to kernel in one syscall when full or on \texttt{fflush()}
+  \item Makes I/O dramatically faster by batching many small writes
+\end{itemize}
+
+\subsection{String and Math}
+\begin{itemize}[noitemsep]
+  \item \texttt{strlen}, \texttt{memcpy}, \texttt{memmove}, \texttt{strcpy}, \texttt{strcmp}, \texttt{strcat}
+  \item Often hand-optimised in SIMD assembly for maximum speed
+  \item \texttt{sin}, \texttt{cos}, \texttt{sqrt}, \texttt{pow}, \texttt{log} --- IEEE 754 floating-point
+\end{itemize}
+
+\subsection{Process Control}
+\begin{itemize}[noitemsep]
+  \item \texttt{fork()} --- creates a copy of the current process
+  \item \texttt{execve()} --- replaces current process image with a new program
+  \item \texttt{exit()} --- terminates with cleanup (flush stdio, run \texttt{atexit()} handlers)
+  \item \texttt{wait()}/\texttt{waitpid()} --- parent collects child exit status
+  \item \texttt{getenv()}/\texttt{setenv()} --- environment variable management
+\end{itemize}
+
+\subsection{Threading (pthreads)}
+\begin{itemize}[noitemsep]
+  \item \texttt{pthread\_create()} --- spawns a thread via \texttt{clone()} syscall
+  \item \texttt{pthread\_mutex\_lock/unlock} --- mutual exclusion
+  \item \texttt{pthread\_cond\_wait/signal} --- condition variables
+  \item \texttt{pthread\_join()} --- wait for thread completion
+  \item Thread-Local Storage (TLS) --- per-thread \texttt{errno} and variables
+\end{itemize}
+
+\subsection{Implementations}
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{2.5cm} p{4cm} p{5cm}}
+\toprule
+\rowcolor{tablehead} Name & Use case & Notes \\
+\midrule
+glibc   & Linux desktop / server & Full-featured, large, very mature \\
+musl    & Embedded / Alpine Linux & Lightweight, clean, \textasciitilde{}30k lines \\
+newlib  & Bare-metal / RTOS       & No OS required \\
+relibc  & Redox OS / Rust OS      & Written in Rust, C-ABI compatible \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+%% ─────────────────────────────────────────────
+\section{Userspace Repository (\texttt{userspace-repo})}
+
+The userspace repo is where your OS identity lives. The kernel is largely the same across many OSes --- what makes each OS \textit{different} is almost entirely the userspace.
+
+\subsection{Init System (PID 1)}
+\begin{itemize}[noitemsep]
+  \item First userspace process the kernel starts after boot
+  \item Parent of all other processes
+  \item Mounts filesystems, starts services, sets up networking
+  \item Options: systemd (most modern distros), OpenRC (Gentoo, Alpine), runit (Void Linux), or a custom init
+  \item Writing a simple init is achievable: fork and exec other programs from C
+\end{itemize}
+
+\subsection{Shell}
+\begin{itemize}[noitemsep]
+  \item Command-line interface between user and kernel
+  \item Parses commands, handles pipes (\texttt{|}), redirection (\texttt{>}), environment variables
+  \item Options: bash, sh, zsh, fish, or a custom REPL
+  \item Minimal shell project: parse input $\rightarrow$ \texttt{fork()} $\rightarrow$ \texttt{execve()}
+\end{itemize}
+
+\subsection{Core Utilities}
+\begin{itemize}[noitemsep]
+  \item All the small programs users and scripts rely on
+  \item \texttt{ls}, \texttt{cp}, \texttt{mv}, \texttt{cat}, \texttt{echo}, \texttt{grep}, \texttt{mount}, \texttt{ps}, \texttt{kill}
+  \item BusyBox: all utilities in one binary (ideal for embedded/minimal systems)
+  \item GNU coreutils: full individual implementations
+\end{itemize}
+
+\subsection{Service Manager}
+\begin{itemize}[noitemsep]
+  \item Manages long-running background daemons
+  \item Network manager, syslog/journald, udev, cron, SSH server
+  \item Integrated into systemd on modern systems; separate on lighter systems
+\end{itemize}
+
+\subsection{Package / Update System}
+\begin{itemize}[noitemsep]
+  \item How software is installed, updated, and removed
+  \item apt (Debian/Ubuntu), pacman (Arch), dnf (Fedora)
+  \item For embedded/mobile: custom OTA update system
+\end{itemize}
+
+\subsection{OS Branding Layer}
+What makes it \textit{your} OS:
+\begin{itemize}[noitemsep]
+  \item Name and version string in \texttt{/etc/os-release}
+  \item Default configuration files and shell prompt
+  \item Default wallpaper, preinstalled apps, update server URLs
+\end{itemize}
+
+%% ─────────────────────────────────────────────
+\section{Rust as an Alternative to C}
+
+Rust is a fully viable modern language for OS-level code, from the kernel down to libc.
+
+\subsection{Why Rust for OS Development?}
+\begin{itemize}[noitemsep]
+  \item Memory safety without a garbage collector
+  \item No use-after-free, no buffer overflows, no null pointer dereferences at compile time
+  \item Safe concurrency --- data races are a compile error
+  \item Same or better performance as C
+  \item These are exactly the bug classes causing most kernel CVEs
+\end{itemize}
+
+\subsection{Rust Options for Each Layer}
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{3cm} p{4cm} p{5cm}}
+\toprule
+\rowcolor{tablehead} Layer & Rust approach & Notes \\
+\midrule
+Kernel           & \texttt{no\_std} + \texttt{core} crate & Linux accepts Rust drivers since v6.1 \\
+Bare-metal        & \texttt{core} + \texttt{alloc}          & Zero libc, full language features \\
+libc replacement  & relibc                         & Full C-ABI compatible, used by Redox \\
+Userspace         & Rust \texttt{std}               & Wraps libc transparently \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Real-World Rust OS Projects}
+\begin{itemize}[noitemsep]
+  \item \textbf{Redox OS} --- full OS in Rust: microkernel + relibc + userspace
+  \item \textbf{Linux kernel} --- Rust drivers accepted since kernel 6.1 (2022)
+  \item \textbf{Android} --- new low-level components written in Rust since 2021
+  \item \textbf{Tock OS} --- embedded Rust OS for microcontrollers
+\end{itemize}
+
+%% ─────────────────────────────────────────────
+\section{Realistic Development Roadmap}
+
+\begin{center}
+\begin{tabular}{>{\bfseries}p{3cm} p{9.5cm}}
+\toprule
+\rowcolor{tablehead} Milestone & Goal \\
+\midrule
+Week 1--2   & Bootloader prints ``Hello World'' in QEMU \\
+Month 1     & Kernel boots, handles interrupts, basic memory management \\
+Month 3     & Processes, scheduler, system calls working \\
+Month 6     & Filesystem, shell, basic userspace programs \\
+Year 1+     & Networking, GUI, driver ecosystem \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Recommended Tools}
+\begin{itemize}[noitemsep]
+  \item \textbf{QEMU} / VirtualBox --- test your OS without rebooting real hardware
+  \item \textbf{GDB} --- debug your kernel with \texttt{-s -S} QEMU flags
+  \item \textbf{NASM} / GAS --- assemblers for boot code
+  \item \textbf{GCC cross-compiler} or \textbf{clang} --- target your architecture
+  \item \textbf{make} / cmake --- build system
+\end{itemize}
+
+\subsection{Learning Resources}
+\begin{itemize}[noitemsep]
+  \item \href{https://wiki.osdev.org}{OSDev Wiki} --- the definitive reference for OS development
+  \item Linux 0.01 --- Linus's first kernel, only \textasciitilde{}10,000 lines
+  \item xv6 --- MIT's teaching OS, clean and well-documented
+  \item SerenityOS --- modern hobby OS with full GUI
+  \item Redox OS --- written entirely in Rust
+  \item \textit{Operating Systems: Three Easy Pieces} (free online)
+  \item \textit{Modern Operating Systems} --- Tanenbaum
+\end{itemize}
+
+\vfill
+\hrule
+\vspace{0.3cm}
+{\small\color{gray} This document covers the full repository structure for building a personal operating system, from firmware to GUI. Each repository has a single clear owner, one release cycle, and one responsibility.}
+
+\end{document}

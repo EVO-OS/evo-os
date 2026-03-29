@@ -189,3 +189,15 @@ This roadmap tracks the development of EVO-OS from initial bootloader to a full 
 ---
 
 *This roadmap is updated with each release. See the [CHANGELOG](../CHANGELOG.md) for what's been completed.*
+
+---
+
+## Full Printed Reference
+
+A complete LaTeX/PDF reference guide covering all repository layers (Firmware → Bootloader → BSP → Kernel → Drivers → libc → Userspace → GUI) is available at [`docs/evo-os-guide.tex`](evo-os-guide.tex).
+
+Compile with:
+
+```bash
+pdflatex docs/evo-os-guide.tex
+```

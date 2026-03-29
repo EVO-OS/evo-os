@@ -1,0 +1,55 @@
+{
+  "name": "EVO-OS Agent",
+  "description": "AI agent configuration for the EVO-OS operating system monorepo. Provides automated workflows for building, testing, and managing the multi-repo OS project.",
+  "version": "0.1.0",
+  "repository": "https://github.com/EVO-OS/evo-os",
+  "skills": [
+    "build",
+    "test",
+    "update-docs",
+    "submodule-sync",
+    "qemu-debug"
+  ],
+  "submodules": [
+    "frimware",
+    "bootloader",
+    "bsp",
+    "Kernel",
+    "drivers",
+    "libc",
+    "filesystem",
+    "GUI",
+    "apps"
+  ],
+  "build": {
+    "primary_language": "Rust",
+    "secondary_languages": ["C", "NASM"],
+    "toolchain": "nightly",
+    "target_default": "i686-evo",
+    "targets": {
+      "x86": "i686-evo",
+      "x86_64": "x86_64-unknown-none",
+      "aarch64": "aarch64-unknown-none"
+    },
+    "emulator": "qemu-system-i386",
+    "commands": {
+      "build_all": "make all",
+      "run": "make run",
+      "debug": "make debug",
+      "clean": "make clean"
+    }
+  },
+  "context": {
+    "architecture": "See ARCHITECTURE.md for full system architecture",
+    "boot_chain": "See docs/BOOT_CHAIN.md for the complete boot sequence",
+    "roadmap": "See docs/ROADMAP.md for development milestones",
+    "contributing": "See CONTRIBUTING.md for contribution guidelines",
+    "key_files": [
+      "Makefile",
+      "Cargo.toml",
+      "i686-evo.json",
+      "linker.ld",
+      "rust-toolchain.toml"
+    ]
+  }
+}
